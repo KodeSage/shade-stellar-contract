@@ -2,11 +2,11 @@ name: CI
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [ main, contrib ]
     paths-ignore:
       - "example/**"
   pull_request:
-    branches: [ main, develop ]
+    branches: [ main, contrib ]
     paths-ignore:
       - "example/**"
 

@@ -2,11 +2,11 @@ name: Pre-commit Checks
 
 on:
   pull_request:
-    branches: [ main, develop ]
+    branches: [ main, contrib ]
     paths-ignore:
       - "example/**"
   push:
-    branches: [ main, develop ]
+    branches: [ main, contrib ]
     paths-ignore:
       - "example/**"
 
