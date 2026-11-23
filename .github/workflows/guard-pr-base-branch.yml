@@ -1,0 +1,82 @@
+name: Guard PR Base Branch
+
+# Contributor PRs must target `contrib`. A PR to any other branch is closed
+# unless its author is a repository admin.
+#
+# pull_request_target runs with a write token even for PRs from forks. That is
+# safe here because the job never checks out or runs code from the PR.
+
+on:
+  pull_request_target:
+    # `edited` covers a PR whose base branch is changed after it was opened.
+    types: [opened, reopened, edited, ready_for_review]
+
+permissions:
+  pull-requests: write
+
+concurrency:
+  group: guard-pr-base-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+env:
+  CONTRIB_BRANCH: contrib
+
+jobs:
+  enforce-contrib-target:
+    if: github.event.pull_request.state == 'open'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Close non-admin PRs that do not target contrib
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const contrib = process.env.CONTRIB_BRANCH;
+            const pr = context.payload.pull_request;
+            const { owner, repo } = context.repo;
+            const author = pr.user.login;
+
+            if (pr.base.ref === contrib) {
+              core.info(`PR #${pr.number} targets ${contrib}, nothing to do.`);
+              return;
+            }
+
+            // Only repository admins may open PRs against other branches.
+            // Non-collaborators make this call fail, which counts as "not admin".
+            let permission = 'none';
+            try {
+              const { data } = await github.rest.repos.getCollaboratorPermissionLevel({
+                owner,
+                repo,
+                username: author,
+              });
+              permission = data.permission;
+            } catch (e) {
+              core.info(`Could not read ${author}'s permission (${e.status}): treating as non-admin.`);
+            }
+
+            if (permission === 'admin') {
+              core.info(`PR #${pr.number} by admin ${author} may target ${pr.base.ref}.`);
+              return;
+            }
+
+            await github.rest.issues.createComment({
+              owner,
+              repo,
+              issue_number: pr.number,
+              body: [
+                `👋 Hi @${author}, thanks for your contribution!`,
+                '',
+                `Pull requests must target the **\`${contrib}\`** branch. This one targets \`${pr.base.ref}\`, which only repository admins can open pull requests against, so it has been closed automatically.`,
+                '',
+                `To continue, change the base branch to \`${contrib}\` (**Edit** next to the PR title), then reopen this pull request, or open a new one against \`${contrib}\`.`,
+              ].join('\n'),
+            });
+
+            await github.rest.pulls.update({
+              owner,
+              repo,
+              pull_number: pr.number,
+              state: 'closed',
+            });
+
+            core.notice(`Closed PR #${pr.number} by ${author} (${permission}): it targeted ${pr.base.ref}.`);

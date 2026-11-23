@@ -1,0 +1,116 @@
+name: Close Linked Issues on Contrib Merge
+
+# GitHub only auto-closes linked issues when a PR merges into the default branch
+# (main). Contributor PRs merge into `contrib`, so this workflow closes their
+# linked issues at that point instead.
+#
+# An issue counts as linked if the PR title or body references it with a closing
+# keyword ("Fixes #12", "closes owner/repo#12", or a link to the issue), or if it
+# was linked from the PR's Development sidebar.
+
+on:
+  pull_request_target:
+    types: [closed]
+    branches: [contrib]
+
+permissions:
+  issues: write
+  pull-requests: read
+
+jobs:
+  close-linked-issues:
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    steps:
+      - name: Close issues linked to the merged PR
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            const { owner, repo } = context.repo;
+            const thisRepo = `${owner}/${repo}`.toLowerCase();
+            const issueNumbers = new Set();
+
+            // 1. Closing keywords in the title or body. A reference to another
+            //    repository is ignored.
+            const text = `${pr.title}\n${pr.body || ''}`;
+            const keyword = String.raw`\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\b\s*:?\s+`;
+            const ref = String.raw`(?:([\w.-]+\/[\w.-]+)#|https:\/\/github\.com\/([\w.-]+\/[\w.-]+)\/issues\/|#)(\d+)\b`;
+            for (const m of text.matchAll(new RegExp(keyword + ref, 'gi'))) {
+              const target = (m[1] || m[2] || thisRepo).toLowerCase();
+              if (target === thisRepo) issueNumbers.add(Number(m[3]));
+            }
+
+            // 2. Issues linked from the PR's Development sidebar.
+            try {
+              const result = await github.graphql(
+                `query($owner: String!, $repo: String!, $number: Int!) {
+                  repository(owner: $owner, name: $repo) {
+                    pullRequest(number: $number) {
+                      closingIssuesReferences(first: 50) {
+                        nodes { number repository { nameWithOwner } }
+                      }
+                    }
+                  }
+                }`,
+                { owner, repo, number: pr.number },
+              );
+              for (const node of result.repository.pullRequest.closingIssuesReferences.nodes) {
+                if (node.repository.nameWithOwner.toLowerCase() === thisRepo) {
+                  issueNumbers.add(node.number);
+                }
+              }
+            } catch (e) {
+              core.warning(`Could not read sidebar-linked issues: ${e.message}`);
+            }
+
+            if (issueNumbers.size === 0) {
+              core.info(`PR #${pr.number} has no linked issues.`);
+              return;
+            }
+
+            const mergedBy = pr.merged_by ? ` by @${pr.merged_by.login}` : '';
+            const closed = [];
+            for (const issue_number of [...issueNumbers].sort((a, b) => a - b)) {
+              try {
+                const { data: issue } = await github.rest.issues.get({ owner, repo, issue_number });
+
+                if (issue.pull_request) {
+                  core.info(`#${issue_number} is a pull request, skipping.`);
+                  continue;
+                }
+                if (issue.state === 'closed') {
+                  core.info(`#${issue_number} is already closed, skipping.`);
+                  continue;
+                }
+
+                await github.rest.issues.createComment({
+                  owner,
+                  repo,
+                  issue_number,
+                  body: [
+                    `✅ Resolved by #${pr.number} from @${pr.user.login}, merged into \`contrib\`${mergedBy}.`,
+                    '',
+                    'Closing this issue as completed. The change will reach `main` with the next merge from `contrib`. Thanks for the contribution!',
+                  ].join('\n'),
+                });
+
+                await github.rest.issues.update({
+                  owner,
+                  repo,
+                  issue_number,
+                  state: 'closed',
+                  state_reason: 'completed',
+                });
+
+                closed.push(`#${issue_number}`);
+              } catch (e) {
+                core.warning(`Could not close #${issue_number}: ${e.message}`);
+              }
+            }
+
+            core.notice(
+              closed.length
+                ? `PR #${pr.number} closed ${closed.join(', ')}.`
+                : `PR #${pr.number} closed no issues.`,
+            );

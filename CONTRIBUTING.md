@@ -15,12 +15,12 @@ Almost all work in this repository starts from a numbered GitHub issue — look 
 
 1. Fork the repository
 2. Clone your fork: `git clone https://github.com/ShadeProtocol/shade-stellar-contract.git`
-3. Create a new branch following the [branch naming convention](#branch-naming) below, e.g. `git checkout -b feat/your-feature-name-123` (where `123` is the issue number)
+3. Create a new branch from `contrib` following the [branch naming convention](#branch-naming) below, e.g. `git checkout -b feat/your-feature-name-123 origin/contrib` (where `123` is the issue number)
 4. Make your changes
 5. Run the [pre-PR checklist](#pre-pr-checklist)
 6. Commit your changes (see [Commit Guidelines](#commit-guidelines))
 7. Push to your fork: `git push origin feat/your-feature-name-123`
-8. Open a Pull Request using the [PR template](#pull-request-process), linking the issue you claimed
+8. Open a Pull Request **against the `contrib` branch** using the [PR template](#pull-request-process), linking the issue you claimed. A PR against any other branch is closed automatically unless you are a repository admin.
 
 ## Branch naming
 
@@ -173,7 +173,7 @@ Run this checklist locally before opening (or re-requesting review on) a PR — 
 
 1. **Run the [Pre-PR Checklist](#pre-pr-checklist)** above.
 2. **Fill out the [PR template](.github/pull_request_template.md)** — GitHub pre-fills it automatically when you open the PR; complete every section (summary, linked issue, test evidence, and documentation updates) rather than deleting the ones that feel optional.
-3. **Link the issue** you claimed (`Fixes #123`) so it closes automatically on merge.
+3. **Link the issue** you claimed (`Fixes #123`, or from the PR's Development sidebar). A workflow closes it automatically when the PR is merged into `contrib`.
 4. **Request review** from a maintainer.
 5. **Respond to feedback** — see [Review expectations](#review-expectations) below for what happens next.
 
