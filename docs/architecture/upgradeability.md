@@ -85,13 +85,15 @@ To reason about them you need to know how the SDK encodes each kind of type on t
 
 ### Integer enums: the *number* is the identity
 
-Enums declared `#[contracttype] #[repr(u32)]` with explicit discriminants — `InvoiceStatus`, `Role` — encode as a bare `u32`. Here the rules invert:
+Enums declared `#[contracttype] #[repr(u32)]` with explicit discriminants — `InvoiceStatus`, `InvoicePricingMode` — encode as a bare `u32`. Here the rules invert:
 
 | Do | Don't |
 |---|---|
 | Append new variants with new, higher numbers: `Draft = 6` was added this way to `InvoiceStatus`. | **Renumber an existing variant.** A stored invoice holding `1` becomes whatever now claims `1`. `Paid` silently reading back as `Cancelled` is exactly the failure mode. |
 | Rename a variant freely — the name is not stored. | **Reuse a retired number** for a new meaning. |
 | Keep the explicit `= N` on every variant so the numbering is reviewable in the diff. | Drop `#[repr(u32)]` or the explicit discriminants from an existing enum. |
+
+A unit enum *without* `#[repr(u32)]`, such as `Role`, follows the key-enum rules instead: it is stored as the variant name, so renaming a variant is breaking and reordering is not.
 
 ### Structs: the field name set is the identity
 
@@ -111,6 +113,8 @@ That last "do" is the escape hatch you should reach for first: most "I need one 
 
 When a breaking storage change genuinely cannot be avoided, pick one of these three. All of them are ordinary contract code — Soroban has no built-in migration framework.
 
+> **Note:** [Writing a storage migration](../contributing/storage-migrations.md) is the step-by-step companion to this section: a worked example that adds a field to `Invoice`, the migration code, and tests that upgrade from the deployed WASM.
+
 ### Versioned keys (simplest, most storage)
 
 Add a new key variant for the new shape and leave the old one in place:
@@ -127,27 +131,11 @@ Reads try `MerchantV2` first and fall back to `Merchant`. Best when the two shap
 
 ### Lazy migration on read (recommended default)
 
-Keep the old key, read the old shape, convert it in memory, and write back the new shape the first time each record is touched:
+Keep the old key, detect which shape each stored record has, convert old records in memory, and let each record reach the new shape the next time it is written. The retired type must stay in the source as `InvoiceV1` (or `MerchantV1`, and so on) for as long as unmigrated records may exist.
 
-```rust
-fn load_merchant(env: &Env, id: u64) -> Merchant {
-    if let Some(m) = env.storage().persistent().get::<_, Merchant>(&DataKey::Merchant(id)) {
-        return m;
-    }
-    let legacy: MerchantV1 = env
-        .storage()
-        .persistent()
-        .get(&DataKey::MerchantLegacy(id))
-        .unwrap_or_else(|| panic_with_error!(env, ContractError::MerchantNotFound));
-    let migrated = Merchant { /* … carry fields over, default the new ones … */ };
-    env.storage().persistent().set(&DataKey::Merchant(id), &migrated);
-    migrated
-}
-```
+The shape has to be detected **before** decoding. Reading an old record as the new struct traps — `get` does not return `None`, and in a deployed contract `try_from_val` traps rather than returning `Err` — so "try the new shape, fall back to the old" does not work. Check for a field that only the new shape has by reading the value as `Map<Symbol, Val>` first; [Writing a storage migration](../contributing/storage-migrations.md#lazy-migration-on-read) shows the loader.
 
-The cost is spread across the merchants who actually transact, no single transaction has to be sized for the whole dataset, and untouched records are migrated only if and when they are needed. The retired type must stay in the source as `MerchantV1` for as long as unmigrated records may exist.
-
-> **Warning:** A lazy migration that reads through a getter must not be the *only* migration path for a record that some other code path writes directly. Route every read of the affected record through the one migrating loader, or you will write a new-shape record over a half-migrated one.
+> **Warning:** Route every read of the affected record through the one migrating loader, including list and search loops. A single direct `get` of the new struct traps on the first old record it meets.
 
 ### An explicit migration entry point
 
@@ -156,7 +144,7 @@ Add an admin-only `migrate(env, admin, from_id, to_id)` that converts a bounded 
 Whichever pattern you choose:
 
 - **Ship the migration in the same WASM as the change that needs it.** An upgrade that lands the new struct and a migration that lands later leaves a window where every read traps.
-- **Test the migration against real pre-upgrade state.** Write the old shape, upgrade, then assert the read. [`contracts/shade/src/tests/test_upgrade.rs`](../../contracts/shade/src/tests/test_upgrade.rs) shows the mechanics: `env.as_contract` to write raw storage, `env.deployer().upload_contract_wasm(V2_WASM)` for the target hash, `client.upgrade(&hash)`, then read back.
+- **Test the migration against real pre-upgrade state.** Write the old shape with the deployed WASM, switch to the new code, then assert the reads. [Writing a storage migration § Testing the migration](../contributing/storage-migrations.md#testing-the-migration) shows how; [`contracts/shade/src/tests/test_upgrade.rs`](../../contracts/shade/src/tests/test_upgrade.rs) covers the `upgrade` entry point itself.
 - **Never assume `unwrap_or_default()` saves you.** A conversion failure on a stored value panics inside the SDK before your `Option` handling is reached.
 
 ## Hub upgrades versus factory-deployed WASM
@@ -260,6 +248,7 @@ Because the release profile is deterministic given the same toolchain and the co
 - [Operations](../operations/README.md) — the operational upgrade runbook; this page is its technical companion.
 - [Building the Contracts](../getting-started/building.md) — producing the optimized WASM an upgrade installs.
 - [Running the Test Suite](../getting-started/running-tests.md) — how `test_upgrade.rs` asserts post-upgrade state.
+- [Writing a storage migration](../contributing/storage-migrations.md) — the how-to for migration code and its tests.
 - [Protocol Glossary](../glossary.md#wasm-hash) — WASM hash, contract id, and storage durability terms.
 
 ← [Back to Architecture](README.md)

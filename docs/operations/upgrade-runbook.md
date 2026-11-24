@@ -36,7 +36,7 @@ This is the step most likely to be skipped under time pressure and the one most 
 
 - [ ] No key-enum variant in `DataKey` was renamed, retyped, or moved to a different enum.
 - [ ] No `#[repr(u32)]` integer enum variant (`InvoiceStatus`, `Role`, etc.) was renumbered. New variants, if any, took new, higher numbers.
-- [ ] No field was added to, removed from, or renamed on a struct that is already persisted on the live network you're upgrading — or a migration ships in the same WASM (see [Migration patterns](../architecture/upgradeability.md#migration-patterns)).
+- [ ] No field was added to, removed from, or renamed on a struct that is already persisted on the live network you're upgrading — or a migration ships in the same WASM (see [Migration patterns](../architecture/upgradeability.md#migration-patterns) and [Writing a storage migration](../contributing/storage-migrations.md)).
 - [ ] If the `account` contract's code changed in this release: understand that upgrading `shade` does **not** upgrade any already-deployed `account` instance — `account` has no upgrade entry point at all, and even if it did, `shade` does not currently deploy accounts through its dead `account_factory` component (see [Deployment Runbook](deployment.md#what-actually-gets-deployed)). A merchant `account` fix requires a separate migration plan (new `account` deployment + `set_merchant_account`), independent of this runbook.
 
 ### Interface review
@@ -104,9 +104,20 @@ Required signer: the current admin (`upgrade` reads the admin from storage and r
 
 A successful response confirms the new WASM is live and can read existing storage — `get_admin` reading `DataKey::Admin` correctly is a minimal but real signal that the new code and the old storage are compatible for at least this one key. This does not by itself prove full storage compatibility — continue to the fuller checks in [Verification](#verification).
 
+### 7. Run the storage migration (if this release has one)
+
+Skip this step unless the release changes a stored type and ships a `migrate_*` entry point. Otherwise, run the migration now, while the contract is still paused, and repeat it until it reports completion:
+
+```bash
+stellar contract invoke --id <shade-id> --network <network> --source-account admin -- migrate_invoices --admin <admin-address> --limit 50
+stellar contract invoke --id <shade-id> --network <network> -- get_storage_version
+```
+
+The function name, arguments and the expected version come from the release; `migrate_invoices` is the [worked example](../contributing/storage-migrations.md#recording-and-checking-the-storage-version). Do not unpause until the storage version reads the value the release expects.
+
 ### 8. Verify critical state
 
-See [Verification](#verification) below — run the full list, not just step 7's single check, before unpausing.
+See [Verification](#verification) below — run the full list, not just the `get_admin` check from step 6, before unpausing.
 
 ### 9. Unpause
 
@@ -133,6 +144,7 @@ After the upgrade and before unpausing, confirm at minimum:
 | Oracle configuration is unchanged (if used) | `stellar contract invoke --id <shade-id> --network <network> -- get_token_oracle --token <token>` |
 | Roles are unchanged | `stellar contract invoke --id <shade-id> --network <network> -- has_role --user <address> --role Manager` |
 | Analytics/counters are consistent | `stellar contract invoke --id <shade-id> --network <network> -- get_merchant_volume --merchant <address> --token <token>` — compare against the pre-upgrade value you recorded before pausing |
+| Storage version matches the release (if it shipped a migration) | `stellar contract invoke --id <shade-id> --network <network> -- get_storage_version` |
 | Pause state is correct (still paused, pending unpause) | `stellar contract invoke --id <shade-id> --network <network> -- is_paused` → `true` |
 | Deployment/build hash is recorded | Cross-check the hash from step 4 against your artifact log |
 | Smoke test passes | See [step 10](#10-run-the-smoke-test) |
