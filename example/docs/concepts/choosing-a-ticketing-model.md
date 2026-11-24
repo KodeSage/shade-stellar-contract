@@ -167,4 +167,5 @@ There is no migration path between the models. They share no storage, and moving
 - [Event ticketing, dynamic pricing, and resale](event-ticketing.md): the former hub module in detail.
 - [Ticketing contract reference](../contracts/ticketing.md): the standalone contract and factory.
 - [Ticket tiers](ticket-tiers.md) and [Event waitlists](event-waitlists.md): standalone features in detail.
+- [Ticket transfers, refunds, and event cancellation](ticket-transfers-and-refunds.md): standalone ticket ownership and refund rules.
 - [Choosing a subscription model](choosing-a-subscription-model.md): the same comparison for subscriptions.

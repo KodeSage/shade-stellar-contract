@@ -211,6 +211,8 @@ pub fn resell_ticket(env: Env, seller: Address, buyer: Address, ticket_id: u64, 
 
 ### Cancellation and refunds
 
+> **Note:** [Ticket transfers, refunds, and event cancellation](../concepts/ticket-transfers-and-refunds.md) covers these flows for organizers and frontends, including what still works after `cancel_event` and how a refund affects tier and waitlist counts.
+
 #### `refund_ticket`
 
 ```rust
@@ -397,6 +399,7 @@ For an integrator building against Shade: use the **hub's own ticketing function
 ## Related pages
 
 - [Choosing a ticketing model](../concepts/choosing-a-ticketing-model.md) — which ticketing model to use, with a full feature comparison.
+- [Ticket transfers, refunds, and event cancellation](../concepts/ticket-transfers-and-refunds.md) — who holds a ticket, and what refunds and cancellation do.
 - [Event ticketing, dynamic pricing, and resale](../concepts/event-ticketing.md) — the Shade hub's own ticketing feature, documented in full.
 - [Escrow contract reference](escrow.md) — the sibling standalone-crate-vs-hub pattern, including the same random-salt factory idiom.
 - [Protocol Glossary](../../../docs/glossary.md) — `event`, `ticket` terms (the hub's own domain "Event" type, distinct from Soroban's platform-level "event" mechanism).
