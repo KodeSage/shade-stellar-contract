@@ -66,6 +66,7 @@
   - [Upgrade Runbook](operations/upgrade-runbook.md)
 - [Contributing](contributing/documentation-style-guide.md)
   - [Docs Tooling](contributing/docs-tooling.md)
+  - [CI Pipeline](contributing/ci-pipeline.md)
   - [Concept Template](contributing/templates/concept-template.md)
   - [How-To Template](contributing/templates/how-to-template.md)
   - [Contract Reference Template](contributing/templates/contract-reference-template.md)

@@ -16,9 +16,9 @@ When you add a page, also add it to [`docs/SUMMARY.md`](../SUMMARY.md) or it wil
 
 ## Quality checks
 
-CI checks links on every PR that touches Markdown (`.github/workflows/docs-quality.yml`), using [lychee](https://github.com/lycheeverse/lychee) with `lychee.toml`.
+Links are checked with [lychee](https://github.com/lycheeverse/lychee) and `lychee.toml`. The CI workflow for it (`.github/workflows/docs-quality.yml`) is currently disabled, so run the check yourself before you open a docs PR (see [CI pipeline](ci-pipeline.md#disabled-workflows)).
 
-Run it locally from the repository root:
+Run it from the repository root:
 
 ```bash
 cargo install lychee

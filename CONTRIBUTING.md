@@ -99,7 +99,7 @@ make build  # cargo build --workspace --target wasm32v1-none --release
 make fixtures  # rebuild the account WASM that shade's tests deploy
 ```
 
-These are exactly the commands CI runs in [`.github/workflows/ci.yml`](.github/workflows/ci.yml) — running them locally before pushing means CI should not surprise you.
+These are the commands CI runs in [`.github/workflows/ci.yml`](.github/workflows/ci.yml). See [CI pipeline](docs/contributing/ci-pipeline.md) for every workflow and job, the exact local reproduction for each, and how `make ci` differs from GitHub CI.
 
 ## Pre-commit Hooks
 
@@ -119,9 +119,10 @@ pre-commit run --all-files
 The hooks will automatically:
 
 - Validate YAML files
-- Format Rust code
-- Run clippy checks
-- Check for merge conflicts
+- Run clippy and `cargo check`
+- Check for merge conflicts, large files, mixed line endings and private keys
+
+They do not format Rust code; run `make fmt` yourself.
 
 ## Commit Guidelines
 
@@ -196,7 +197,7 @@ A PR that makes a significant design decision (new or restructured contract, fac
 
 ### Docs site and quality checks
 
-Preview the docs site locally with `make docs-serve` (or `mdbook serve docs`) and build it with `make docs`. Docs PRs run link checks in CI; see [Docs tooling](docs/contributing/docs-tooling.md) for how to run them locally.
+Preview the docs site locally with `make docs-serve` (or `mdbook serve docs`) and build it with `make docs`. The docs CI workflows are currently disabled, so run `make docs-check` before you open a docs PR; see [Docs tooling](docs/contributing/docs-tooling.md).
 
 ### Keeping reference docs in sync
 
