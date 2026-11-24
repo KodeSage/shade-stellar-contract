@@ -2,6 +2,8 @@
 
 The Shade hub exposes an event ticketing surface — `create_event`, `purchase_ticket`, `configure_dynamic_pricing`, `get_current_ticket_price`, `resell_ticket`, and `cancel_event_and_batch_refund` — backed by `Event`, `Ticket`, and `EventStatus` types. This page documents the domain, pricing mechanics, and cancellation/refund behaviour.
 
+> **Note:** Since [ADR 0007](../../../docs/architecture/decisions/0007-core-gateway-scope.md) this module is no longer part of the hub. It lives in [`example/ticketing/src/from_shade/`](../../ticketing/src/from_shade/) behind the `from-shade` feature and does not currently build. To compare it with the standalone `ticketing` contract, and for the full `purchase_tickets_bulk` behaviour, see [Choosing a ticketing model](choosing-a-ticketing-model.md).
+
 ## Why it exists
 
 Event organizers need a way to sell tickets with capacity limits, dynamic pricing, and resale support, all settled on-chain through Shade [merchant](../../../docs/glossary.md#merchant) accounts. Dynamic pricing lets organizers capture early-bird demand and late-buyer premiums without off-chain price oracles.
@@ -54,6 +56,8 @@ else:
 | 10–19    | 1,000 (10%)           |
 | 20+      | 1,500 (15%)           |
 
+The discount stacks on dynamic pricing, and a bulk purchase creates no `Ticket` records. See [Bulk purchase discounts](choosing-a-ticketing-model.md#bulk-purchase-discounts) for the formula, parameters and limits.
+
 ### Resale
 
 `resell_ticket` transfers ownership of a ticket between two addresses. The sale price is split: a royalty (in basis points of the sale price, as configured on the event) goes to the [merchant](../../../docs/glossary.md#merchant), and the remainder goes to the seller. Setting `royalty_bps` to 0 pays the seller in full.
@@ -100,6 +104,7 @@ else:
 
 ## Related pages
 
+- [Choosing a ticketing model](choosing-a-ticketing-model.md) — this module compared with the standalone `ticketing` contract
 - [Ticket tiers and tiered issuance](ticket-tiers.md) — per-category price and supply caps in the standalone `ticketing` contract
 - [Auto-withdrawal and merchant settlement](../../../docs/concepts/auto-withdrawal.md)
 - [Payment payloads, swap routing, and the cross-chain bridge placeholder](../../../docs/concepts/payment-payloads-and-routing.md)
